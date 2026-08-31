@@ -49,9 +49,9 @@
     "nsgName": "nsg",
     "nsgRuleNameSSH": "nsgssh",
     "nsgRuleNameHTTP": "nsghttp",
-    "vmSize": "Standard_D4as_v4",
-    "clientScriptUri": "https://vinatarasa.blob.core.windows.net/scripts/client.sh",
-    "backendScriptUri": "https://vinatarasa.blob.core.windows.net/scripts/backend.sh",
+    "vmSize": "Standard_D8alds_v7",
+    "clientScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/client.sh",
+    "backendScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/backend.sh",
     "apiVersion": "2022-01-01",
     "computeApiVersion": "2022-08-01"
   },
@@ -204,6 +204,11 @@
         "hardwareProfile": {
           "vmSize": "[variables('vmSize')]"
         },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
         "osProfile": {
           "computerName": "[variables('client0VmName')]",
           "adminUsername": "[parameters('adminUserName')]",
@@ -212,8 +217,8 @@
         "storageProfile": {
           "imageReference": {
             "publisher": "Canonical",
-            "offer": "UbuntuServer",
-            "sku": "18.04-LTS",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
             "version": "latest"
           },
           "osDisk": {
@@ -311,6 +316,11 @@
         "hardwareProfile": {
           "vmSize": "[variables('vmSize')]"
         },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
         "osProfile": {
           "computerName": "[variables('client1VmName')]",
           "adminUsername": "[parameters('adminUserName')]",
@@ -319,8 +329,8 @@
         "storageProfile": {
           "imageReference": {
             "publisher": "Canonical",
-            "offer": "UbuntuServer",
-            "sku": "18.04-LTS",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
             "version": "latest"
           },
           "osDisk": {
@@ -424,6 +434,11 @@
         "hardwareProfile": {
           "vmSize": "[variables('vmSize')]"
         },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
         "osProfile": {
           "computerName": "[variables('backend0VmName')]",
           "adminUsername": "[parameters('adminUserName')]",
@@ -432,8 +447,8 @@
         "storageProfile": {
           "imageReference": {
             "publisher": "Canonical",
-            "offer": "UbuntuServer",
-            "sku": "18.04-LTS",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
             "version": "latest"
           },
           "osDisk": {
@@ -537,6 +552,11 @@
         "hardwareProfile": {
           "vmSize": "[variables('vmSize')]"
         },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
         "osProfile": {
           "computerName": "[variables('backend1VmName')]",
           "adminUsername": "[parameters('adminUserName')]",
@@ -545,8 +565,8 @@
         "storageProfile": {
           "imageReference": {
             "publisher": "Canonical",
-            "offer": "UbuntuServer",
-            "sku": "18.04-LTS",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
             "version": "latest"
           },
           "osDisk": {
