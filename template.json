@@ -49,7 +49,7 @@
     "nsgName": "nsg",
     "nsgRuleNameSSH": "nsgssh",
     "nsgRuleNameHTTP": "nsghttp",
-    "vmSize": "Standard_D8alds_v7",
+    "vmSize": "Standard_D8alds_v6",
     "clientScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/client.sh",
     "backendScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/backend.sh",
     "apiVersion": "2022-01-01",
@@ -607,6 +607,7 @@
     },
     {
       "type": "Microsoft.Network/publicIPAddresses",
+      "zones": [ "1", "2", "3", "4" ],
       "sku": {
         "name": "Standard"
       },
@@ -628,6 +629,7 @@
       "name": "[variables('appgw0Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
+      "tags": { "TipNode.pinnedFabricCluster": "CVL01PrdApp01" },
       "zones": [ "3" ],
       "properties": {
         "sku": {
@@ -783,6 +785,7 @@
     },
     {
       "type": "Microsoft.Network/publicIPAddresses",
+      "zones": [ "1", "2", "3", "4" ],
       "sku": {
         "name": "Standard"
       },
@@ -804,7 +807,7 @@
       "name": "[variables('appgw1Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
-      "tags": {},
+      "tags": { "TipNode.pinnedFabricCluster": "CBN07PrdApp52" },
       "zones": [ "3" ],
       "properties": {
         "sku": {
