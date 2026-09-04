@@ -92,12 +92,24 @@
           {
             "name": "[variables('appgw0SubnetName')]",
             "properties": {
+              "delegations": [
+                {
+                  "name": "Microsoft.Network/applicationGateways", 
+                  "properties": { "serviceName": "Microsoft.Network/applicationGateways" }
+                }
+              ],
               "addressPrefix": "10.0.3.0/24"
             }
           },
           {
             "name": "[variables('appgw1SubnetName')]",
             "properties": {
+              "delegations": [
+                {
+                  "name": "Microsoft.Network/applicationGateways", 
+                  "properties": { "serviceName": "Microsoft.Network/applicationGateways" }
+                }
+              ],
               "addressPrefix": "10.0.4.0/24"
             }
           }
