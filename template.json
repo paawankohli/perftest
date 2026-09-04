@@ -628,6 +628,7 @@
       "name": "[variables('appgw0Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
+      "zones": [ "3" ],
       "properties": {
         "sku": {
           "name": "Standard_v2",
@@ -804,6 +805,7 @@
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
       "tags": {},
+      "zones": [ "3" ],
       "properties": {
         "sku": {
           "name": "Standard_v2",
