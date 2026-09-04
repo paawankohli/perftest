@@ -820,7 +820,7 @@
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
       "tags": { "TipNode.pinnedFabricCluster": "CBN07PrdApp52" },
-      "zones": [ "3" ],
+      "zones": [ "4" ],
       "properties": {
         "sku": {
           "name": "Standard_v2",

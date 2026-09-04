@@ -630,7 +630,7 @@
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
       "tags": { "TipNode.pinnedFabricCluster": "CVL01PrdApp01" },
-      "zones": [ "3" ],
+      "zones": [ "1" ],
       "properties": {
         "sku": {
           "name": "Standard_v2",
