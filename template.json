@@ -607,7 +607,12 @@
     },
     {
       "type": "Microsoft.Network/publicIPAddresses",
-      "zones": [ "1", "2", "3", "4" ],
+      "zones": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
       "sku": {
         "name": "Standard"
       },
@@ -629,8 +634,12 @@
       "name": "[variables('appgw0Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
-      "tags": { "TipNode.pinnedFabricCluster": "CVL01PrdApp01" },
-      "zones": [ "1" ],
+      "tags": {
+        "TipNode.pinnedFabricCluster": "CVL01PrdApp01"
+      },
+      "zones": [
+        "1"
+      ],
       "properties": {
         "sku": {
           "name": "Standard_v2",
@@ -785,7 +794,12 @@
     },
     {
       "type": "Microsoft.Network/publicIPAddresses",
-      "zones": [ "1", "2", "3", "4" ],
+      "zones": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
       "sku": {
         "name": "Standard"
       },
@@ -807,8 +821,12 @@
       "name": "[variables('appgw1Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
-      "tags": { "TipNode.pinnedFabricCluster": "CBN07PrdApp52" },
-      "zones": [ "3" ],
+      "tags": {
+        "TipNode.pinnedFabricCluster": "CBN07PrdApp52"
+      },
+      "zones": [
+        "3"
+      ],
       "properties": {
         "sku": {
           "name": "Standard_v2",

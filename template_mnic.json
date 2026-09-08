@@ -94,8 +94,10 @@
             "properties": {
               "delegations": [
                 {
-                  "name": "Microsoft.Network/applicationGateways", 
-                  "properties": { "serviceName": "Microsoft.Network/applicationGateways" }
+                  "name": "Microsoft.Network/applicationGateways",
+                  "properties": {
+                    "serviceName": "Microsoft.Network/applicationGateways"
+                  }
                 }
               ],
               "addressPrefix": "10.0.3.0/24"
@@ -106,8 +108,10 @@
             "properties": {
               "delegations": [
                 {
-                  "name": "Microsoft.Network/applicationGateways", 
-                  "properties": { "serviceName": "Microsoft.Network/applicationGateways" }
+                  "name": "Microsoft.Network/applicationGateways",
+                  "properties": {
+                    "serviceName": "Microsoft.Network/applicationGateways"
+                  }
                 }
               ],
               "addressPrefix": "10.0.4.0/24"
@@ -619,7 +623,12 @@
     },
     {
       "type": "Microsoft.Network/publicIPAddresses",
-      "zones": [ "1", "2", "3", "4" ],
+      "zones": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
       "sku": {
         "name": "Standard"
       },
@@ -641,8 +650,12 @@
       "name": "[variables('appgw0Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
-      "tags": { "TipNode.pinnedFabricCluster": "CVL01PrdApp01" },
-      "zones": [ "3" ],
+      "tags": {
+        "TipNode.pinnedFabricCluster": "CVL01PrdApp01"
+      },
+      "zones": [
+        "3"
+      ],
       "properties": {
         "sku": {
           "name": "Standard_v2",
@@ -797,7 +810,12 @@
     },
     {
       "type": "Microsoft.Network/publicIPAddresses",
-      "zones": [ "1", "2", "3", "4" ],
+      "zones": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
       "sku": {
         "name": "Standard"
       },
@@ -819,8 +837,12 @@
       "name": "[variables('appgw1Name')]",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
-      "tags": { "TipNode.pinnedFabricCluster": "CBN07PrdApp52" },
-      "zones": [ "4" ],
+      "tags": {
+        "TipNode.pinnedFabricCluster": "CBN07PrdApp52"
+      },
+      "zones": [
+        "4"
+      ],
       "properties": {
         "sku": {
           "name": "Standard_v2",
