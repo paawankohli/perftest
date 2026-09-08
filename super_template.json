@@ -51,8 +51,7 @@
     "nsgRuleNameHTTP": "nsghttp",
     "vmSize": "Standard_D8alds_v6",
     "rgName": "[toLower(resourceGroup().name)]",
-    "gatewayVersion": "[if(contains(toLower(resourceGroup().name), 'd2d_v5'), 'Vmss_38.3.3518.4124', 'Vmss_38.3.3533.4198')]",
-
+    "gatewayVersion": "[if(contains(variables('rgName'), 'd2d_v5'), 'Vmss_38.3.3518.4124', 'Vmss_38.3.3533.4198')]",
     "isMnic": "[and(contains(variables('rgName'), 'mnic'), not(contains(variables('rgName'), 'nonmnic')))]",
     "appgwSubnetDelegations": [
       {
