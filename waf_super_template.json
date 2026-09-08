@@ -40,6 +40,7 @@
     "appgw1SubnetName": "appgw1Subnet",
     "nsgName": "nsg",
     "nsgRuleNameHTTP": "nsghttp",
+    "nsgRuleNameGatewayManager": "nsggatewaymanager",
     "vmSize": "Standard_D8alds_v6",
     "rgName": "[toLower(resourceGroup().name)]",
     "gatewayVersion": "[if(contains(variables('rgName'), 'd2d_v5'), 'Vmss_38.3.3518.4124', 'Vmss_38.3.3533.4198')]",
@@ -97,14 +98,20 @@
             "name": "[variables('appgw0SubnetName')]",
             "properties": {
               "delegations": "[variables('appgwDelegations')]",
-              "addressPrefix": "10.0.3.0/24"
+              "addressPrefix": "10.0.3.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
             }
           },
           {
             "name": "[variables('appgw1SubnetName')]",
             "properties": {
               "delegations": "[variables('appgwDelegations')]",
-              "addressPrefix": "10.0.4.0/24"
+              "addressPrefix": "10.0.4.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
             }
           }
         ]
@@ -117,6 +124,20 @@
       "location": "[parameters('location')]",
       "properties": {
         "securityRules": [
+          {
+            "name": "[variables('nsgRuleNameGatewayManager')]",
+            "properties": {
+              "description": "Required for Application Gateway v2 control plane",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "65200-65535",
+              "sourceAddressPrefix": "GatewayManager",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
           {
             "name": "[variables('nsgRuleNameHTTP')]",
             "properties": {
