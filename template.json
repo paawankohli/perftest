@@ -50,6 +50,7 @@
     "nsgRuleNameSSH": "nsgssh",
     "nsgRuleNameHTTP": "nsghttp",
     "vmSize": "Standard_D8alds_v6",
+    "gatewayVersion": "[if(contains(toLower(resourceGroup().name), 'd2d_v5'), 'Vmss_38.3.3518.4124', 'Vmss_38.3.3533.4198')]",
     "clientScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/client.sh",
     "backendScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/backend.sh",
     "apiVersion": "2022-01-01",
@@ -635,7 +636,8 @@
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
       "tags": {
-        "TipNode.pinnedFabricCluster": "CVL01PrdApp01"
+        "TipNode.pinnedFabricCluster": "CVL01PrdApp01",
+        "CustomGatewayVersion": "[variables('gatewayVersion')]"
       },
       "zones": [
         "1"
@@ -822,7 +824,8 @@
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
       "tags": {
-        "TipNode.pinnedFabricCluster": "CBN07PrdApp52"
+        "TipNode.pinnedFabricCluster": "CBN07PrdApp52",
+        "CustomGatewayVersion": "[variables('gatewayVersion')]"
       },
       "zones": [
         "3"
