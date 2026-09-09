@@ -5,8 +5,8 @@ sudo tee /usr/local/bin/appgw-softirq-probe.sh >/dev/null <<'EOF'
 set -u
 
 LOG=${LOG:-/var/log/appgwbootstrap/bootstrap.log}
-INTERVAL=${INTERVAL:-1}
-DURATION=${DURATION:-1800}
+INTERVAL=1
+DURATION=7200
 COMPONENT=ProcStatProbe
 ACTIVITY=SoftirqProbe
 MYPID=$$
