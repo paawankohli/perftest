@@ -9,6 +9,9 @@ echo $(hostname) | sudo tee /var/www/html/index.html
 dd if=/dev/urandom of=/var/www/html/1kb.html bs=1024 count=1
 dd if=/dev/urandom of=/var/www/html/10kb.html bs=10240 count=1
 dd if=/dev/urandom of=/var/www/html/100kb.html bs=102400 count=1
+dd if=/dev/urandom of=/var/www/html/1mb.html bs=1024000 count=1
+dd if=/dev/urandom of=/var/www/html/10mb.html bs=10240000 count=1
+
 
 # Compression would shrink the payloads on the wire and invalidate size comparisons.
 sed -i 's/^\([[:space:]]*\)gzip on;/\1gzip off;/' /etc/nginx/nginx.conf
