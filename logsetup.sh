@@ -6,7 +6,7 @@ set -u
 
 LOG=${LOG:-/var/log/appgwbootstrap/bootstrap.log}
 INTERVAL=1
-DURATION=7200
+DURATION=7200000
 COMPONENT=ProcStatProbe
 ACTIVITY=SoftirqProbe
 MYPID=$$
