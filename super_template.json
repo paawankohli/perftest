@@ -21,18 +21,9 @@
     }
   },
   "variables": {
-    "backend0VmName": "backendVm0",
-    "backend0PipName": "[concat( variables('backend0VmName'), '-pip')]",
-    "backend0NicName": "[concat( variables('backend0VmName'), '-nic')]",
-    "backend1VmName": "backendVm1",
-    "backend1PipName": "[concat( variables('backend1VmName'), '-pip')]",
-    "backend1NicName": "[concat( variables('backend1VmName'), '-nic')]",
-    "client0VmName": "clientVm0",
-    "client0PipName": "[concat( variables('client0VmName'), '-pip')]",
-    "client0NicName": "[concat( variables('client0VmName'), '-nic')]",
-    "client1VmName": "clientVm1",
-    "client1PipName": "[concat( variables('client1VmName'), '-pip')]",
-    "client1NicName": "[concat( variables('client1VmName'), '-nic')]",
+    "vmCount": 4,
+    "backendVmNamePrefix": "backendVm",
+    "clientVmNamePrefix": "clientVm",
     "appgw0Name": "baselineAppGwGateway",
     "appgw1Name": "experimentalAppGwGateway",
     "appgw0PipName": "[concat( variables('appgw0Name'), '-pip')]",
@@ -162,13 +153,17 @@
       }
     },
     {
-      "name": "[variables('client0PipName')]",
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex(), '-pip')]",
       "type": "Microsoft.Network/publicIPAddresses",
       "sku": {
         "name": "Standard"
       },
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
+      "copy": {
+        "name": "clientPipCopy",
+        "count": "[variables('vmCount')]"
+      },
       "tags": {
         "displayName": "PublicIPAddress"
       },
@@ -183,12 +178,16 @@
       }
     },
     {
-      "name": "[variables('client0NicName')]",
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex(), '-nic')]",
       "type": "Microsoft.Network/networkInterfaces",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
+      "copy": {
+        "name": "clientNicCopy",
+        "count": "[variables('vmCount')]"
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('client0PipName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('clientVmNamePrefix'), copyIndex(), '-pip'))]",
         "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
       ],
       "properties": {
@@ -198,7 +197,7 @@
             "properties": {
               "privateIPAllocationMethod": "Dynamic",
               "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('client0PipName'))]"
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('clientVmNamePrefix'), copyIndex(), '-pip'))]"
               },
               "subnet": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('clientSubnetName'))]"
@@ -209,12 +208,16 @@
       }
     },
     {
-      "name": "[variables('client0VmName')]",
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex())]",
       "type": "Microsoft.Compute/virtualMachines",
       "apiVersion": "[variables('computeApiVersion')]",
       "location": "[parameters('location')]",
+      "copy": {
+        "name": "clientVmCopy",
+        "count": "[variables('vmCount')]"
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', variables('client0NicName'))]"
+        "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('clientVmNamePrefix'), copyIndex(), '-nic'))]"
       ],
       "properties": {
         "hardwareProfile": {
@@ -226,7 +229,7 @@
           }
         },
         "osProfile": {
-          "computerName": "[variables('client0VmName')]",
+          "computerName": "[concat(variables('clientVmNamePrefix'), copyIndex())]",
           "adminUsername": "[parameters('adminUserName')]",
           "adminPassword": "[parameters('adminPassword')]"
         },
@@ -245,19 +248,23 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('client0NicName'))]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('clientVmNamePrefix'), copyIndex(), '-nic'))]"
             }
           ]
         }
       }
     },
     {
-      "name": "[concat(variables('client0VmName'), '/config')]",
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex(), '/config')]",
       "type": "Microsoft.Compute/virtualMachines/extensions",
       "location": "[parameters('location')]",
       "apiVersion": "[variables('computeApiVersion')]",
+      "copy": {
+        "name": "clientExtensionCopy",
+        "count": "[variables('vmCount')]"
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('client0VmName'))]"
+        "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('clientVmNamePrefix'), copyIndex()))]"
       ],
       "properties": {
         "publisher": "Microsoft.Azure.Extensions",
@@ -274,13 +281,17 @@
       }
     },
     {
-      "name": "[variables('client1PipName')]",
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex(), '-pip')]",
       "type": "Microsoft.Network/publicIPAddresses",
       "sku": {
         "name": "Standard"
       },
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
+      "copy": {
+        "name": "backendPipCopy",
+        "count": "[variables('vmCount')]"
+      },
       "tags": {
         "displayName": "PublicIPAddress"
       },
@@ -295,243 +306,18 @@
       }
     },
     {
-      "name": "[variables('client1NicName')]",
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex(), '-nic')]",
       "type": "Microsoft.Network/networkInterfaces",
       "apiVersion": "[variables('apiVersion')]",
       "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('client1PipName'))]",
-        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
-      ],
-      "properties": {
-        "ipConfigurations": [
-          {
-            "name": "ipConfig1",
-            "properties": {
-              "privateIPAllocationMethod": "Dynamic",
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('client1PipName'))]"
-              },
-              "subnet": {
-                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('clientSubnetName'))]"
-              }
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "[variables('client1VmName')]",
-      "type": "Microsoft.Compute/virtualMachines",
-      "apiVersion": "[variables('computeApiVersion')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', variables('client1NicName'))]"
-      ],
-      "properties": {
-        "hardwareProfile": {
-          "vmSize": "[variables('vmSize')]"
-        },
-        "diagnosticsProfile": {
-          "bootDiagnostics": {
-            "enabled": true
-          }
-        },
-        "osProfile": {
-          "computerName": "[variables('client1VmName')]",
-          "adminUsername": "[parameters('adminUserName')]",
-          "adminPassword": "[parameters('adminPassword')]"
-        },
-        "storageProfile": {
-          "imageReference": {
-            "publisher": "Canonical",
-            "offer": "ubuntu-24_04-lts",
-            "sku": "server",
-            "version": "latest"
-          },
-          "osDisk": {
-            "caching": "ReadWrite",
-            "createOption": "FromImage"
-          }
-        },
-        "networkProfile": {
-          "networkInterfaces": [
-            {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('client1NicName'))]"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "name": "[concat(variables('client1VmName'), '/config')]",
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "location": "[parameters('location')]",
-      "apiVersion": "[variables('computeApiVersion')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('client1VmName'))]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Azure.Extensions",
-        "type": "CustomScript",
-        "typeHandlerVersion": "2.1",
-        "autoUpgradeMinorVersion": true,
-        "forceUpdateTag": "tag",
-        "settings": {
-          "commandToExecute": "sudo bash client.sh",
-          "fileUris": [
-            "[variables('clientScriptUri')]"
-          ]
-        }
-      }
-    },
-    {
-      "name": "[variables('backend0PipName')]",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "sku": {
-        "name": "Standard"
+      "copy": {
+        "name": "backendNicCopy",
+        "count": "[variables('vmCount')]"
       },
-      "apiVersion": "[variables('apiVersion')]",
-      "location": "[parameters('location')]",
-      "tags": {
-        "displayName": "PublicIPAddress"
-      },
-      "properties": {
-        "publicIPAllocationMethod": "static",
-        "ipTags": [
-          {
-            "ipTagType": "FirstPartyUsage",
-            "tag": "/NonProd"
-          }
-        ]
-      }
-    },
-    {
-      "name": "[variables('backend0NicName')]",
-      "type": "Microsoft.Network/networkInterfaces",
-      "apiVersion": "[variables('apiVersion')]",
-      "location": "[parameters('location')]",
       "dependsOn": [
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('backend0PipName'))]",
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('backendVmNamePrefix'), copyIndex(), '-pip'))]",
         "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
-        "[resourceId('Microsoft.Network/applicationGateways', variables('appgw0Name'))]"
-      ],
-      "properties": {
-        "ipConfigurations": [
-          {
-            "name": "ipConfig1",
-            "properties": {
-              "privateIPAllocationMethod": "Dynamic",
-              "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('backend0PipName'))]"
-              },
-              "subnet": {
-                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('backendSubnetName'))]"
-              },
-              "applicationGatewayBackendAddressPools": [
-                {
-                  "id": "[concat(variables('appgw0ID'), '/backendAddressPools/pool1')]"
-                }
-              ]
-            }
-          }
-        ]
-      }
-    },
-    {
-      "name": "[variables('backend0VmName')]",
-      "type": "Microsoft.Compute/virtualMachines",
-      "apiVersion": "[variables('computeApiVersion')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', variables('backend0NicName'))]"
-      ],
-      "properties": {
-        "hardwareProfile": {
-          "vmSize": "[variables('vmSize')]"
-        },
-        "diagnosticsProfile": {
-          "bootDiagnostics": {
-            "enabled": true
-          }
-        },
-        "osProfile": {
-          "computerName": "[variables('backend0VmName')]",
-          "adminUsername": "[parameters('adminUserName')]",
-          "adminPassword": "[parameters('adminPassword')]"
-        },
-        "storageProfile": {
-          "imageReference": {
-            "publisher": "Canonical",
-            "offer": "ubuntu-24_04-lts",
-            "sku": "server",
-            "version": "latest"
-          },
-          "osDisk": {
-            "caching": "ReadWrite",
-            "createOption": "FromImage"
-          }
-        },
-        "networkProfile": {
-          "networkInterfaces": [
-            {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('backend0NicName'))]"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "name": "[concat(variables('backend0VmName'), '/config')]",
-      "type": "Microsoft.Compute/virtualMachines/extensions",
-      "location": "[parameters('location')]",
-      "apiVersion": "[variables('computeApiVersion')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('backend0VmName'))]"
-      ],
-      "properties": {
-        "publisher": "Microsoft.Azure.Extensions",
-        "type": "CustomScript",
-        "typeHandlerVersion": "2.1",
-        "autoUpgradeMinorVersion": true,
-        "forceUpdateTag": "tag1",
-        "settings": {
-          "commandToExecute": "sudo bash backend.sh",
-          "fileUris": [
-            "[variables('backendScriptUri')]"
-          ]
-        }
-      }
-    },
-    {
-      "name": "[variables('backend1PipName')]",
-      "type": "Microsoft.Network/publicIPAddresses",
-      "sku": {
-        "name": "Standard"
-      },
-      "apiVersion": "[variables('apiVersion')]",
-      "location": "[parameters('location')]",
-      "tags": {
-        "displayName": "PublicIPAddress"
-      },
-      "properties": {
-        "publicIPAllocationMethod": "static",
-        "ipTags": [
-          {
-            "ipTagType": "FirstPartyUsage",
-            "tag": "/NonProd"
-          }
-        ]
-      }
-    },
-    {
-      "name": "[variables('backend1NicName')]",
-      "type": "Microsoft.Network/networkInterfaces",
-      "apiVersion": "[variables('apiVersion')]",
-      "location": "[parameters('location')]",
-      "dependsOn": [
-        "[resourceId('Microsoft.Network/publicIPAddresses', variables('backend1PipName'))]",
-        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/applicationGateways', variables('appgw0Name'))]",
         "[resourceId('Microsoft.Network/applicationGateways', variables('appgw1Name'))]"
       ],
       "properties": {
@@ -541,12 +327,15 @@
             "properties": {
               "privateIPAllocationMethod": "Dynamic",
               "publicIPAddress": {
-                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('backend1PipName'))]"
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('backendVmNamePrefix'), copyIndex(), '-pip'))]"
               },
               "subnet": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('backendSubnetName'))]"
               },
               "applicationGatewayBackendAddressPools": [
+                {
+                  "id": "[concat(variables('appgw0ID'), '/backendAddressPools/pool1')]"
+                },
                 {
                   "id": "[concat(variables('appgw1ID'), '/backendAddressPools/pool1')]"
                 }
@@ -557,12 +346,16 @@
       }
     },
     {
-      "name": "[variables('backend1VmName')]",
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex())]",
       "type": "Microsoft.Compute/virtualMachines",
       "apiVersion": "[variables('computeApiVersion')]",
       "location": "[parameters('location')]",
+      "copy": {
+        "name": "backendVmCopy",
+        "count": "[variables('vmCount')]"
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Network/networkInterfaces', variables('backend1NicName'))]"
+        "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('backendVmNamePrefix'), copyIndex(), '-nic'))]"
       ],
       "properties": {
         "hardwareProfile": {
@@ -574,7 +367,7 @@
           }
         },
         "osProfile": {
-          "computerName": "[variables('backend1VmName')]",
+          "computerName": "[concat(variables('backendVmNamePrefix'), copyIndex())]",
           "adminUsername": "[parameters('adminUserName')]",
           "adminPassword": "[parameters('adminPassword')]"
         },
@@ -593,19 +386,23 @@
         "networkProfile": {
           "networkInterfaces": [
             {
-              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('backend1NicName'))]"
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('backendVmNamePrefix'), copyIndex(), '-nic'))]"
             }
           ]
         }
       }
     },
     {
-      "name": "[concat(variables('backend1VmName'), '/config')]",
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex(), '/config')]",
       "type": "Microsoft.Compute/virtualMachines/extensions",
       "location": "[parameters('location')]",
       "apiVersion": "[variables('computeApiVersion')]",
+      "copy": {
+        "name": "backendExtensionCopy",
+        "count": "[variables('vmCount')]"
+      },
       "dependsOn": [
-        "[resourceId('Microsoft.Compute/virtualMachines', variables('backend1VmName'))]"
+        "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('backendVmNamePrefix'), copyIndex()))]"
       ],
       "properties": {
         "publisher": "Microsoft.Azure.Extensions",
