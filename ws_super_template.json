@@ -1,0 +1,910 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "adminUserName": {
+      "type": "string",
+      "defaultValue": "adminuser"
+    },
+    "adminPassword": {
+      "type": "securestring"
+    },
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "certData": {
+      "type": "securestring"
+    },
+    "certPassword": {
+      "type": "securestring"
+    }
+  },
+  "variables": {
+    "vmCount": 4,
+    "backendVmNamePrefix": "backendVm",
+    "clientVmNamePrefix": "clientVm",
+    "appgw0Name": "baselineAppGwGateway",
+    "appgw1Name": "experimentalAppGwGateway",
+    "appgw0PipName": "[concat( variables('appgw0Name'), '-pip')]",
+    "appgw1PipName": "[concat( variables('appgw1Name'), '-pip')]",
+    "appgw0ID": "[resourceId('Microsoft.Network/applicationGateways',variables('appgw0Name'))]",
+    "appgw1ID": "[resourceId('Microsoft.Network/applicationGateways',variables('appgw1Name'))]",
+    "appgw0PrivateIp": "10.0.3.99",
+    "appgw1PrivateIp": "10.0.4.99",
+    "vnetName": "vnet",
+    "backendSubnetName": "backendSubnet",
+    "clientSubnetName": "clientSubnet",
+    "appgw0SubnetName": "appgw0Subnet",
+    "appgw1SubnetName": "appgw1Subnet",
+    "nsgName": "nsg",
+    "nsgRuleNameSSH": "nsgssh",
+    "nsgRuleNameHTTP": "nsghttp",
+    "vmSize": "Standard_D8alds_v6",
+    "rgName": "[toLower(resourceGroup().name)]",
+    "gatewayVersion": "[if(contains(variables('rgName'), 'd2d_v5'), 'Vmss_38.3.3518.4124', 'Vmss_38.3.3533.4198')]",
+    "isMnic": "[and(contains(variables('rgName'), 'mnic'), not(contains(variables('rgName'), 'nonmnic')))]",
+    "appgwSubnetDelegations": [
+      {
+        "name": "Microsoft.Network/applicationGateways",
+        "properties": {
+          "serviceName": "Microsoft.Network/applicationGateways"
+        }
+      }
+    ],
+    "appgwDelegations": "[if(variables('isMnic'), variables('appgwSubnetDelegations'), json('[]'))]",
+    "appgw0Zones": "[if(variables('isMnic'), createArray('3'), createArray('1'))]",
+    "appgw1Zones": "[if(variables('isMnic'), createArray('4'), createArray('3'))]",
+    "clientScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/client.sh",
+    "backendScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/backend.sh",
+    "wsClientScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/ws_client_cse.sh",
+    "wsBackendScriptUri": "https://raw.githubusercontent.com/paawankohli/perftest/refs/heads/main/ws_backend_cse.sh",
+    "wsBackendPort": 8080,
+    "wsMaxConnections": 5000,
+    "wsMaxNewCps": 50,
+    "wsPauseBetweenMessages": 20,
+    "wsMessageSizes": "100",
+    "sharedHttpPools": [
+      {
+        "id": "[concat(variables('appgw0ID'), '/backendAddressPools/pool1')]"
+      },
+      {
+        "id": "[concat(variables('appgw1ID'), '/backendAddressPools/pool1')]"
+      }
+    ],
+    "appgw0WsPool": [
+      {
+        "id": "[concat(variables('appgw0ID'), '/backendAddressPools/wsPool')]"
+      }
+    ],
+    "appgw1WsPool": [
+      {
+        "id": "[concat(variables('appgw1ID'), '/backendAddressPools/wsPool')]"
+      }
+    ],
+    "apiVersion": "2022-01-01",
+    "computeApiVersion": "2022-08-01"
+  },
+  "resources": [
+    {
+      "name": "[variables('vnetName')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[variables('clientSubnetName')]",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('backendSubnetName')]",
+            "properties": {
+              "addressPrefix": "10.0.2.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
+            }
+          },
+          {
+            "name": "[variables('appgw0SubnetName')]",
+            "properties": {
+              "delegations": "[variables('appgwDelegations')]",
+              "addressPrefix": "10.0.3.0/24"
+            }
+          },
+          {
+            "name": "[variables('appgw1SubnetName')]",
+            "properties": {
+              "delegations": "[variables('appgwDelegations')]",
+              "addressPrefix": "10.0.4.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[variables('nsgName')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "[variables('nsgRuleNameSSH')]",
+            "properties": {
+              "description": "description",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "174.160.3.25/32",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "[variables('nsgRuleNameHTTP')]",
+            "properties": {
+              "description": "description",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRanges": [
+                "80",
+                "443"
+              ],
+              "sourceAddressPrefix": "174.160.3.25/32",
+              "destinationAddressPrefix": "*",
+              "access": "Allow",
+              "priority": 200,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex(), '-pip')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "sku": {
+        "name": "Standard"
+      },
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "clientPipCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "tags": {
+        "displayName": "PublicIPAddress"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "static",
+        "ipTags": [
+          {
+            "ipTagType": "FirstPartyUsage",
+            "tag": "/NonProd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex(), '-nic')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "clientNicCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('clientVmNamePrefix'), copyIndex(), '-pip'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipConfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('clientVmNamePrefix'), copyIndex(), '-pip'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('clientSubnetName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex())]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "clientVmCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('clientVmNamePrefix'), copyIndex(), '-nic'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
+        "osProfile": {
+          "computerName": "[concat(variables('clientVmNamePrefix'), copyIndex())]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
+            "version": "latest"
+          },
+          "osDisk": {
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('clientVmNamePrefix'), copyIndex(), '-nic'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "[concat(variables('clientVmNamePrefix'), copyIndex(), '/config')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[parameters('location')]",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "copy": {
+        "name": "clientExtensionCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('clientVmNamePrefix'), copyIndex()))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.1",
+        "autoUpgradeMinorVersion": true,
+        "forceUpdateTag": "tag2",
+        "settings": {
+          "commandToExecute": "[concat('sudo bash client.sh && sudo bash ws_client_cse.sh --target-url ws://', if(less(copyIndex(), 2), variables('appgw0PrivateIp'), variables('appgw1PrivateIp')), ':', string(variables('wsBackendPort')), '/ --max-connections ', string(variables('wsMaxConnections')), ' --max-new-cps ', string(variables('wsMaxNewCps')), ' --pause-between-messages ', string(variables('wsPauseBetweenMessages')), ' --message-sizes ', variables('wsMessageSizes'))]",
+          "fileUris": [
+            "[variables('clientScriptUri')]",
+            "[variables('wsClientScriptUri')]"
+          ]
+        }
+      }
+    },
+    {
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex(), '-pip')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "sku": {
+        "name": "Standard"
+      },
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "backendPipCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "tags": {
+        "displayName": "PublicIPAddress"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "static",
+        "ipTags": [
+          {
+            "ipTagType": "FirstPartyUsage",
+            "tag": "/NonProd"
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex(), '-nic')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "backendNicCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('backendVmNamePrefix'), copyIndex(), '-pip'))]",
+        "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]",
+        "[resourceId('Microsoft.Network/applicationGateways', variables('appgw0Name'))]",
+        "[resourceId('Microsoft.Network/applicationGateways', variables('appgw1Name'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipConfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', concat(variables('backendVmNamePrefix'), copyIndex(), '-pip'))]"
+              },
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('backendSubnetName'))]"
+              },
+              "applicationGatewayBackendAddressPools": "[concat(variables('sharedHttpPools'), if(less(copyIndex(), 2), variables('appgw0WsPool'), variables('appgw1WsPool')))]"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex())]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "backendVmCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('backendVmNamePrefix'), copyIndex(), '-nic'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('vmSize')]"
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true
+          }
+        },
+        "osProfile": {
+          "computerName": "[concat(variables('backendVmNamePrefix'), copyIndex())]",
+          "adminUsername": "[parameters('adminUserName')]",
+          "adminPassword": "[parameters('adminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "ubuntu-24_04-lts",
+            "sku": "server",
+            "version": "latest"
+          },
+          "osDisk": {
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          }
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('backendVmNamePrefix'), copyIndex(), '-nic'))]"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "[concat(variables('backendVmNamePrefix'), copyIndex(), '/config')]",
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "location": "[parameters('location')]",
+      "apiVersion": "[variables('computeApiVersion')]",
+      "copy": {
+        "name": "backendExtensionCopy",
+        "count": "[variables('vmCount')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', concat(variables('backendVmNamePrefix'), copyIndex()))]"
+      ],
+      "properties": {
+        "publisher": "Microsoft.Azure.Extensions",
+        "type": "CustomScript",
+        "typeHandlerVersion": "2.1",
+        "autoUpgradeMinorVersion": true,
+        "forceUpdateTag": "tag2",
+        "settings": {
+          "commandToExecute": "sudo bash backend.sh && sudo bash ws_backend_cse.sh",
+          "fileUris": [
+            "[variables('backendScriptUri')]",
+            "[variables('wsBackendScriptUri')]"
+          ]
+        }
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "zones": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "sku": {
+        "name": "Standard"
+      },
+      "name": "[variables('appgw0PipName')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipTags": [
+          {
+            "ipTagType": "FirstPartyUsage",
+            "tag": "/Entangled"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "name": "[variables('appgw0Name')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "TipNode.pinnedFabricCluster": "CVL01PrdApp01",
+        "CustomGatewayVersion": "[variables('gatewayVersion')]"
+      },
+      "zones": "[variables('appgw0Zones')]",
+      "properties": {
+        "sku": {
+          "name": "Standard_v2",
+          "tier": "Standard_v2",
+          "capacity": 2
+        },
+        "sslCertificates": [
+          {
+            "name": "sslCert",
+            "properties": {
+              "data": "[parameters('certData')]",
+              "password": "[parameters('certPassword')]"
+            }
+          }
+        ],
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('appgw0SubnetName'))]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "appGatewayPublicFrontendIP",
+            "properties": {
+              "PublicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('appgw0PipName'))]"
+              }
+            }
+          },
+          {
+            "name": "appGatewayPrivateFrontendIP",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[variables('appgw0PrivateIp')]",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('appgw0SubnetName'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "port1",
+            "properties": {
+              "Port": 80
+            }
+          },
+          {
+            "name": "port2",
+            "properties": {
+              "Port": 443
+            }
+          },
+          {
+            "name": "port3",
+            "properties": {
+              "Port": "[variables('wsBackendPort')]"
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "pool1",
+            "properties": {
+              "BackendAddresses": []
+            }
+          },
+          {
+            "name": "wsPool",
+            "properties": {
+              "BackendAddresses": []
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "settings1",
+            "properties": {
+              "Port": 80,
+              "Protocol": "Http"
+            }
+          },
+          {
+            "name": "settings2",
+            "properties": {
+              "Port": 443,
+              "Protocol": "Https"
+            }
+          },
+          {
+            "name": "wsSettings",
+            "properties": {
+              "Port": "[variables('wsBackendPort')]",
+              "Protocol": "Http",
+              "requestTimeout": 86400
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "listener1",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appgw0ID'), '/frontendIPConfigurations/appGatewayPublicFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appgw0ID'), '/frontendPorts/port1')]"
+              },
+              "Protocol": "Http"
+            }
+          },
+          {
+            "name": "listener2",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appgw0ID'), '/frontendIPConfigurations/appGatewayPrivateFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appgw0ID'), '/frontendPorts/port2')]"
+              },
+              "Protocol": "Https",
+              "SslCertificate": {
+                "Id": "[concat(variables('appgw0ID'), '/sslCertificates/sslCert')]"
+              }
+            }
+          },
+          {
+            "name": "wsListener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appgw0ID'), '/frontendIPConfigurations/appGatewayPrivateFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appgw0ID'), '/frontendPorts/port3')]"
+              },
+              "Protocol": "Http"
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "Name": "rule1",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appgw0ID'), '/httpListeners/listener1')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appgw0ID'), '/backendAddressPools/pool1')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appgw0ID'), '/backendHttpSettingsCollection/settings1')]"
+              },
+              "priority": 1
+            }
+          },
+          {
+            "Name": "rule2",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appgw0ID'), '/httpListeners/listener2')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appgw0ID'), '/backendAddressPools/pool1')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appgw0ID'), '/backendHttpSettingsCollection/settings1')]"
+              },
+              "priority": 2
+            }
+          },
+          {
+            "Name": "wsRule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appgw0ID'), '/httpListeners/wsListener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appgw0ID'), '/backendAddressPools/wsPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appgw0ID'), '/backendHttpSettingsCollection/wsSettings')]"
+              },
+              "priority": 3
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('vnetName'))]",
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('appgw0PipName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "zones": [
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "sku": {
+        "name": "Standard"
+      },
+      "name": "[variables('appgw1PipName')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Static",
+        "ipTags": [
+          {
+            "ipTagType": "FirstPartyUsage",
+            "tag": "/Entangled"
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "name": "[variables('appgw1Name')]",
+      "apiVersion": "[variables('apiVersion')]",
+      "location": "[parameters('location')]",
+      "tags": {
+        "TipNode.pinnedFabricCluster": "CBN07PrdApp52",
+        "CustomGatewayVersion": "[variables('gatewayVersion')]"
+      },
+      "zones": "[variables('appgw1Zones')]",
+      "properties": {
+        "sku": {
+          "name": "Standard_v2",
+          "tier": "Standard_v2",
+          "capacity": 2
+        },
+        "sslCertificates": [
+          {
+            "name": "sslCert",
+            "properties": {
+              "data": "[parameters('certData')]",
+              "password": "[parameters('certPassword')]"
+            }
+          }
+        ],
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('appgw1SubnetName'))]"
+              }
+            }
+          }
+        ],
+        "frontendIPConfigurations": [
+          {
+            "name": "appGatewayPublicFrontendIP",
+            "properties": {
+              "PublicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('appgw1PipName'))]"
+              }
+            }
+          },
+          {
+            "name": "appGatewayPrivateFrontendIP",
+            "properties": {
+              "privateIPAllocationMethod": "Static",
+              "privateIPAddress": "[variables('appgw1PrivateIp')]",
+              "subnet": {
+                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('appgw1SubnetName'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "port1",
+            "properties": {
+              "Port": 80
+            }
+          },
+          {
+            "name": "port2",
+            "properties": {
+              "Port": 443
+            }
+          },
+          {
+            "name": "port3",
+            "properties": {
+              "Port": "[variables('wsBackendPort')]"
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "pool1",
+            "properties": {
+              "BackendAddresses": []
+            }
+          },
+          {
+            "name": "wsPool",
+            "properties": {
+              "BackendAddresses": []
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "settings1",
+            "properties": {
+              "Port": 80,
+              "Protocol": "Http"
+            }
+          },
+          {
+            "name": "settings2",
+            "properties": {
+              "Port": 443,
+              "Protocol": "Https"
+            }
+          },
+          {
+            "name": "wsSettings",
+            "properties": {
+              "Port": "[variables('wsBackendPort')]",
+              "Protocol": "Http",
+              "requestTimeout": 86400
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "listener1",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appgw1ID'), '/frontendIPConfigurations/appGatewayPublicFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appgw1ID'), '/frontendPorts/port1')]"
+              },
+              "Protocol": "Http"
+            }
+          },
+          {
+            "name": "listener2",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appgw1ID'), '/frontendIPConfigurations/appGatewayPrivateFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appgw1ID'), '/frontendPorts/port2')]"
+              },
+              "Protocol": "Https",
+              "SslCertificate": {
+                "Id": "[concat(variables('appgw1ID'), '/sslCertificates/sslCert')]"
+              }
+            }
+          },
+          {
+            "name": "wsListener",
+            "properties": {
+              "FrontendIPConfiguration": {
+                "Id": "[concat(variables('appgw1ID'), '/frontendIPConfigurations/appGatewayPrivateFrontendIP')]"
+              },
+              "FrontendPort": {
+                "Id": "[concat(variables('appgw1ID'), '/frontendPorts/port3')]"
+              },
+              "Protocol": "Http"
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "Name": "rule1",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appgw1ID'), '/httpListeners/listener1')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appgw1ID'), '/backendAddressPools/pool1')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appgw1ID'), '/backendHttpSettingsCollection/settings1')]"
+              },
+              "priority": 1
+            }
+          },
+          {
+            "Name": "rule2",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appgw1ID'), '/httpListeners/listener2')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appgw1ID'), '/backendAddressPools/pool1')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appgw1ID'), '/backendHttpSettingsCollection/settings1')]"
+              },
+              "priority": 2
+            }
+          },
+          {
+            "Name": "wsRule",
+            "properties": {
+              "RuleType": "Basic",
+              "httpListener": {
+                "id": "[concat(variables('appgw1ID'), '/httpListeners/wsListener')]"
+              },
+              "backendAddressPool": {
+                "id": "[concat(variables('appgw1ID'), '/backendAddressPools/wsPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[concat(variables('appgw1ID'), '/backendHttpSettingsCollection/wsSettings')]"
+              },
+              "priority": 3
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[concat('Microsoft.Network/virtualNetworks/', variables('vnetName'))]",
+        "[concat('Microsoft.Network/publicIPAddresses/', variables('appgw1PipName'))]"
+      ]
+    }
+  ]
+}
