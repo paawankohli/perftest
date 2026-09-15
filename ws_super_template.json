@@ -21,7 +21,8 @@
     }
   },
   "variables": {
-    "vmCount": 4,
+    "vmsPerGateway": 4,
+    "vmCount": "[mul(variables('vmsPerGateway'), 2)]",
     "backendVmNamePrefix": "backendVm",
     "clientVmNamePrefix": "clientVm",
     "appgw0Name": "baselineAppGwGateway",
@@ -38,8 +39,6 @@
     "appgw0SubnetName": "appgw0Subnet",
     "appgw1SubnetName": "appgw1Subnet",
     "nsgName": "nsg",
-    "nsgRuleNameSSH": "nsgssh",
-    "nsgRuleNameHTTP": "nsghttp",
     "vmSize": "Standard_D8alds_v6",
     "rgName": "[toLower(resourceGroup().name)]",
     "gatewayVersion": "[if(contains(variables('rgName'), 'd2d_v5'), 'Vmss_38.3.3518.4124', 'Vmss_38.3.3533.4198')]",
@@ -289,9 +288,9 @@
         "type": "CustomScript",
         "typeHandlerVersion": "2.1",
         "autoUpgradeMinorVersion": true,
-        "forceUpdateTag": "tag3",
+        "forceUpdateTag": "tag4",
         "settings": {
-          "commandToExecute": "[concat('sudo bash client.sh && sudo bash ws_client_cse.sh --target-url ws://', if(less(copyIndex(), 2), variables('appgw0PrivateIp'), variables('appgw1PrivateIp')), ':', string(variables('wsBackendPort')), '/ --max-connections ', string(variables('wsMaxConnections')), ' --max-new-cps ', string(variables('wsMaxNewCps')), ' --pause-between-messages ', string(variables('wsPauseBetweenMessages')), ' --message-sizes ', variables('wsMessageSizes'))]",
+          "commandToExecute": "[concat('sudo bash client.sh && sudo bash ws_client_cse.sh --target-url ws://', if(less(copyIndex(), variables('vmsPerGateway')), variables('appgw0PrivateIp'), variables('appgw1PrivateIp')), ':', string(variables('wsBackendPort')), '/ --max-connections ', string(variables('wsMaxConnections')), ' --max-new-cps ', string(variables('wsMaxNewCps')), ' --pause-between-messages ', string(variables('wsPauseBetweenMessages')), ' --message-sizes ', variables('wsMessageSizes'))]",
           "fileUris": [
             "[variables('clientScriptUri')]",
             "[variables('wsClientScriptUri')]"
@@ -351,7 +350,7 @@
               "subnet": {
                 "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('backendSubnetName'))]"
               },
-              "applicationGatewayBackendAddressPools": "[concat(variables('sharedHttpPools'), if(less(copyIndex(), 2), variables('appgw0WsPool'), variables('appgw1WsPool')))]"
+              "applicationGatewayBackendAddressPools": "[concat(variables('sharedHttpPools'), if(less(copyIndex(), variables('vmsPerGateway')), variables('appgw0WsPool'), variables('appgw1WsPool')))]"
             }
           }
         ]
@@ -421,7 +420,7 @@
         "type": "CustomScript",
         "typeHandlerVersion": "2.1",
         "autoUpgradeMinorVersion": true,
-        "forceUpdateTag": "tag3",
+        "forceUpdateTag": "tag4",
         "settings": {
           "commandToExecute": "sudo bash backend.sh && sudo bash ws_backend_cse.sh",
           "fileUris": [
