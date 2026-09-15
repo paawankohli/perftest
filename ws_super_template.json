@@ -123,14 +123,20 @@
             "name": "[variables('appgw0SubnetName')]",
             "properties": {
               "delegations": "[variables('appgwDelegations')]",
-              "addressPrefix": "10.0.3.0/24"
+              "addressPrefix": "10.0.3.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
             }
           },
           {
             "name": "[variables('appgw1SubnetName')]",
             "properties": {
               "delegations": "[variables('appgwDelegations')]",
-              "addressPrefix": "10.0.4.0/24"
+              "addressPrefix": "10.0.4.0/24",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]"
+              }
             }
           }
         ]
@@ -144,34 +150,21 @@
       "properties": {
         "securityRules": [
           {
-            "name": "[variables('nsgRuleNameSSH')]",
+            "name": "GwmToAppgw",
             "properties": {
               "description": "description",
               "protocol": "Tcp",
               "sourcePortRange": "*",
-              "destinationPortRange": "22",
-              "sourceAddressPrefix": "174.160.3.25/32",
+              "destinationPortRange": "*",
+              "sourceAddressPrefix": "GatewayManager",
               "destinationAddressPrefix": "*",
               "access": "Allow",
               "priority": 100,
-              "direction": "Inbound"
-            }
-          },
-          {
-            "name": "[variables('nsgRuleNameHTTP')]",
-            "properties": {
-              "description": "description",
-              "protocol": "Tcp",
-              "sourcePortRange": "*",
-              "destinationPortRanges": [
-                "80",
-                "443"
-              ],
-              "sourceAddressPrefix": "174.160.3.25/32",
-              "destinationAddressPrefix": "*",
-              "access": "Allow",
-              "priority": 200,
-              "direction": "Inbound"
+              "direction": "Inbound",
+              "sourcePortRanges": [],
+              "destinationPortRanges": [],
+              "sourceAddressPrefixes": [],
+              "destinationAddressPrefixes": []
             }
           }
         ]
@@ -296,7 +289,7 @@
         "type": "CustomScript",
         "typeHandlerVersion": "2.1",
         "autoUpgradeMinorVersion": true,
-        "forceUpdateTag": "tag2",
+        "forceUpdateTag": "tag3",
         "settings": {
           "commandToExecute": "[concat('sudo bash client.sh && sudo bash ws_client_cse.sh --target-url ws://', if(less(copyIndex(), 2), variables('appgw0PrivateIp'), variables('appgw1PrivateIp')), ':', string(variables('wsBackendPort')), '/ --max-connections ', string(variables('wsMaxConnections')), ' --max-new-cps ', string(variables('wsMaxNewCps')), ' --pause-between-messages ', string(variables('wsPauseBetweenMessages')), ' --message-sizes ', variables('wsMessageSizes'))]",
           "fileUris": [
@@ -428,7 +421,7 @@
         "type": "CustomScript",
         "typeHandlerVersion": "2.1",
         "autoUpgradeMinorVersion": true,
-        "forceUpdateTag": "tag2",
+        "forceUpdateTag": "tag3",
         "settings": {
           "commandToExecute": "sudo bash backend.sh && sudo bash ws_backend_cse.sh",
           "fileUris": [
